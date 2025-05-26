@@ -14,7 +14,7 @@
     button { background-color: #6200ee; color: white; cursor: pointer; }
     #status { margin-top: 1rem; font-size: 0.9rem; }
   </style>
-  <!-- 加入 Solana 與 Metaplex CDN -->
+  <!-- Solana 與 Metaplex CDN -->
   <script src="https://unpkg.com/@solana/web3.js@latest/lib/index.iife.js"></script>
   <script src="https://unpkg.com/@metaplex-foundation/js@1.32.0/dist/index.umd.js"></script>
 </head>
@@ -34,7 +34,6 @@
   <input type="file" id="file" accept="image/*" />
 
   <button onclick="mintNFT()">Create & Mint</button>
-
   <div id="status"></div>
 
   <script type="module">
@@ -43,6 +42,30 @@
     const API_KEY = 'dd804f84.f5b0889412664599857188135bc7786f';
     const client = new NFTStorage({ token: API_KEY });
 
+    // 這是 mintNFTOnSolana function
+    async function mintNFTOnSolana(metadataURI, name, statusDiv) {
+      try {
+        const connection = new window.solanaWeb3.Connection(window.solanaWeb3.clusterApiUrl('devnet'));
+        const metaplex = new window.metaplexJs.Metaplex(connection);
+        metaplex.use(window.metaplexJs.walletAdapterIdentity(window.solana));
+
+        statusDiv.innerText += "\nMinting NFT on Solana devnet...";
+        const { nft } = await metaplex.nfts().create({
+          uri: metadataURI,
+          name,
+          sellerFeeBasisPoints: 500, // 5% 版稅
+          maxSupply: 1
+        }).run();
+
+        statusDiv.innerText += "\n🎉 NFT Mint Success! NFT address: " + nft.address.toString();
+        statusDiv.innerHTML += `<br><a href="https://solscan.io/token/${nft.address.toString()}?cluster=devnet" target="_blank">View on Solscan</a>`;
+      } catch (e) {
+        console.error(e);
+        statusDiv.innerText += "\n❌ Mint Error: " + e.message;
+      }
+    }
+
+    // 這是主流程
     window.mintNFT = async function mintNFT() {
       const name = document.getElementById('name').value;
       const description = document.getElementById('description').value;
@@ -74,22 +97,8 @@
           const publicKey = window.solana.publicKey.toString();
           status.innerText += "\nConnected wallet: " + publicKey;
 
-          // 3. 透過 Metaplex SDK 在 Solana devnet 上 mint NFT
-          status.innerText += "\nMinting NFT on Solana devnet...";
-          const connection = new window.solanaWeb3.Connection(window.solanaWeb3.clusterApiUrl('devnet'));
-          const metaplex = new window.metaplexJs.Metaplex(connection);
-          metaplex.use(window.metaplexJs.walletAdapterIdentity(window.solana));
-
-          // 建立 mint NFT 請求
-          const { nft } = await metaplex.nfts().create({
-            uri: metadata.url,
-            name,
-            sellerFeeBasisPoints: 500, // 5% 版稅
-            maxSupply: 1
-          }).run();
-
-          status.innerText += "\n🎉 NFT Mint Success! NFT address: " + nft.address.toString();
-          status.innerHTML += `<br><a href="https://solscan.io/token/${nft.address.toString()}?cluster=devnet" target="_blank">View on Solscan</a>`;
+          // 3. 呼叫 mintNFTOnSolana
+          await mintNFTOnSolana(metadata.url, name, status);
         } else {
           status.innerText += "\n⚠️ Please install Phantom Wallet.";
         }
