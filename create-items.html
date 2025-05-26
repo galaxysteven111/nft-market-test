@@ -1,5 +1,3 @@
-# 建立 create-items.html 實作版本，整合 NFT.Storage 與 Solana Phantom 錢包連結
-create_items_html = """
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -16,6 +14,9 @@ create_items_html = """
     button { background-color: #6200ee; color: white; cursor: pointer; }
     #status { margin-top: 1rem; font-size: 0.9rem; }
   </style>
+  <!-- 加入 Solana 與 Metaplex CDN -->
+  <script src="https://unpkg.com/@solana/web3.js@latest/lib/index.iife.js"></script>
+  <script src="https://unpkg.com/@metaplex-foundation/js@1.32.0/dist/index.umd.js"></script>
 </head>
 <body>
   <h1>Create and Mint NFT</h1>
@@ -36,14 +37,13 @@ create_items_html = """
 
   <div id="status"></div>
 
-  <script src="https://unpkg.com/@nftstorage/nftstorage/dist/bundle.esm.min.js"></script>
   <script type="module">
     import { NFTStorage, File } from 'https://unpkg.com/nft.storage/dist/bundle.esm.min.js';
 
     const API_KEY = 'dd804f84.f5b0889412664599857188135bc7786f';
     const client = new NFTStorage({ token: API_KEY });
 
-    async function mintNFT() {
+    window.mintNFT = async function mintNFT() {
       const name = document.getElementById('name').value;
       const description = document.getElementById('description').value;
       const fileInput = document.getElementById('file');
@@ -58,39 +58,46 @@ create_items_html = """
       status.innerText = "Uploading to IPFS...";
 
       try {
+        // 1. 上傳 metadata 到 IPFS
         const metadata = await client.store({
           name,
           description,
           image: new File([imageFile], imageFile.name, { type: imageFile.type })
         });
 
-        const metadataURI = metadata.url;
+        const metadataURI = metadata.url.replace('ipfs://', 'https://ipfs.io/ipfs/');
         status.innerText = "✅ Uploaded! Metadata URI: " + metadataURI;
 
-        // Trigger Phantom for mint (placeholder)
+        // 2. 連接 Phantom 錢包
         if (window.solana && window.solana.isPhantom) {
           await window.solana.connect();
           const publicKey = window.solana.publicKey.toString();
-          status.innerText += "\\nConnected wallet: " + publicKey;
-          
-          // TODO: Integrate mint logic via Metaplex SDK (in next phase)
+          status.innerText += "\nConnected wallet: " + publicKey;
+
+          // 3. 透過 Metaplex SDK 在 Solana devnet 上 mint NFT
+          status.innerText += "\nMinting NFT on Solana devnet...";
+          const connection = new window.solanaWeb3.Connection(window.solanaWeb3.clusterApiUrl('devnet'));
+          const metaplex = new window.metaplexJs.Metaplex(connection);
+          metaplex.use(window.metaplexJs.walletAdapterIdentity(window.solana));
+
+          // 建立 mint NFT 請求
+          const { nft } = await metaplex.nfts().create({
+            uri: metadata.url,
+            name,
+            sellerFeeBasisPoints: 500, // 5% 版稅
+            maxSupply: 1
+          }).run();
+
+          status.innerText += "\n🎉 NFT Mint Success! NFT address: " + nft.address.toString();
+          status.innerHTML += `<br><a href="https://solscan.io/token/${nft.address.toString()}?cluster=devnet" target="_blank">View on Solscan</a>`;
         } else {
-          status.innerText += "\\n⚠️ Please install Phantom Wallet.";
+          status.innerText += "\n⚠️ Please install Phantom Wallet.";
         }
       } catch (e) {
         console.error(e);
         status.innerText = "❌ Error: " + e.message;
       }
     }
-
-    window.mintNFT = mintNFT;
   </script>
 </body>
 </html>
-"""
-
-# 儲存 HTML 檔案準備提供給用戶或部署
-with open("/mnt/data/create-items.html", "w", encoding="utf-8") as f:
-    f.write(create_items_html)
-
-"/mnt/data/create-items.html"
