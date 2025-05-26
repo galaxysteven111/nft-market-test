@@ -13,6 +13,7 @@
     }
     button { background-color: #6200ee; color: white; cursor: pointer; }
     #status { margin-top: 1rem; font-size: 0.9rem; }
+    #status a { color: #6200ee; word-break: break-all; }
   </style>
   <!-- Solana 與 Metaplex CDN -->
   <script src="https://unpkg.com/@solana/web3.js@latest/lib/index.iife.js"></script>
@@ -88,19 +89,20 @@
           image: new File([imageFile], imageFile.name, { type: imageFile.type })
         });
 
+        // 建議同時顯示 IPFS 兩種格式
         const metadataURI = metadata.url.replace('ipfs://', 'https://ipfs.io/ipfs/');
-        status.innerText = "✅ Uploaded! Metadata URI: " + metadataURI;
+        status.innerHTML = "✅ Uploaded!<br>Metadata IPFS URI: <a href='" + metadataURI + "' target='_blank'>" + metadataURI + "</a><br>原始 URI: " + metadata.url;
 
         // 2. 連接 Phantom 錢包
         if (window.solana && window.solana.isPhantom) {
           await window.solana.connect();
           const publicKey = window.solana.publicKey.toString();
-          status.innerText += "\nConnected wallet: " + publicKey;
+          status.innerHTML += "<br>Connected wallet: " + publicKey;
 
           // 3. 呼叫 mintNFTOnSolana
           await mintNFTOnSolana(metadata.url, name, status);
         } else {
-          status.innerText += "\n⚠️ Please install Phantom Wallet.";
+          status.innerHTML += "<br>⚠️ Please install Phantom Wallet.";
         }
       } catch (e) {
         console.error(e);
